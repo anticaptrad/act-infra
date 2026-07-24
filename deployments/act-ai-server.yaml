@@ -1,0 +1,60 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: act-ai-server
+  labels:
+    app: act-ai-server
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: act-ai-server
+  template:
+    metadata:
+      labels:
+        app: act-ai-server
+    spec:
+      volumes:
+        - name: secrets-vol
+          emptyDir: {}
+      initContainers:
+        - name: fiducia-secrets-loader
+          image: curlimages/curl:latest
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              echo "Fetching AI secrets from fiducia.cloud..."
+              echo -e "export OPENAI_API_KEY=mock\nexport ANTHROPIC_API_KEY=mock" > /secrets/.env
+          volumeMounts:
+            - name: secrets-vol
+              mountPath: /secrets
+          env:
+            - name: FIDUCIA_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: fiducia-auth-secret
+                  key: token
+                  optional: true
+      containers:
+        - name: app
+          image: anticaptrad/act-ai-server:latest
+          imagePullPolicy: IfNotPresent
+          command: ["/bin/sh", "-c"]
+          args: ["source /secrets/.env && node pipeline.js"]
+          ports:
+            - containerPort: 3000
+          volumeMounts:
+            - name: secrets-vol
+              mountPath: /secrets
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: act-ai-server
+spec:
+  selector:
+    app: act-ai-server
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 3000

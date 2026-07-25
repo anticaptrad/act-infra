@@ -11,6 +11,8 @@ data:
   OTEL_SERVICE_NAME: "act-mcp-server"
   OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector:4317"
   RUST_LOG: "info,act_mcp_server=debug"
+  # SERVER_AUTH_SECRET arrives via the secretRef below. /mcp is tool execution
+  # and fails closed without it.
 ---
 apiVersion: apps/v1
 kind: Deployment

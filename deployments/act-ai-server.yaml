@@ -15,6 +15,16 @@ data:
   NODE_ENV: "production"
   OTEL_SERVICE_NAME: "act-ai-server"
   OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector:4318"
+  # Uploads may only be read from this directory. `filePath` arrives in a
+  # request body, so without the boundary the publish route is an
+  # arbitrary-file-read primitive.
+  YOUTUBE_UPLOAD_DIR: "/mnt/renders"
+  # Refuse to publish if the credentials own a different channel — a swapped
+  # token would otherwise upload to a stranger's channel under our titles.
+  YOUTUBE_CHANNEL_ID: "UC-Gloecwemo_Mh-VAjnUipg"
+  YOUTUBE_CHANNEL_HANDLE: "@AntiCapTrad"
+  # Default to private so a misconfiguration can never publish publicly.
+  YOUTUBE_PRIVACY_STATUS: "private"
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -45,6 +55,10 @@ spec:
           type: RuntimeDefault
       volumes:
         - name: tmp
+          emptyDir: {}
+        # Rendered videos staged for upload. An emptyDir keeps them pod-local
+        # and disposable; swap for a PVC when renders must outlive the pod.
+        - name: renders
           emptyDir: {}
       containers:
         - name: app
@@ -85,6 +99,8 @@ spec:
           volumeMounts:
             - name: tmp
               mountPath: /tmp
+            - name: renders
+              mountPath: /mnt/renders
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true

@@ -1,3 +1,21 @@
+# act-ai-server — multi-provider LLM script/video generation + YouTube publishing
+# (Node/TypeScript/Fastify). Deployed to the k8s cluster at ~/codes/ores/k8s-cluster.
+#
+# Provider API keys (OPENAI_API_KEY, ANTHROPIC_API_KEY, GEMINI_API_KEY, XAI_API_KEY,
+# YOUTUBE_*) come from the `act-ai-server-secrets` Secret populated by the fiducia
+# external-secrets operator — no mock loader, no secrets sourced from a file.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: act-ai-server-config
+  labels:
+    app: act-ai-server
+data:
+  PORT: "3000"
+  NODE_ENV: "production"
+  OTEL_SERVICE_NAME: "act-ai-server"
+  OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector:4318"
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -9,52 +27,82 @@ spec:
   selector:
     matchLabels:
       app: act-ai-server
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
   template:
     metadata:
       labels:
         app: act-ai-server
     spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
       volumes:
-        - name: secrets-vol
+        - name: tmp
           emptyDir: {}
-      initContainers:
-        - name: fiducia-secrets-loader
-          image: curlimages/curl:latest
-          command: ["/bin/sh", "-c"]
-          args:
-            - |
-              echo "Fetching AI secrets from fiducia.cloud..."
-              echo -e "export OPENAI_API_KEY=mock\nexport ANTHROPIC_API_KEY=mock" > /secrets/.env
-          volumeMounts:
-            - name: secrets-vol
-              mountPath: /secrets
-          env:
-            - name: FIDUCIA_TOKEN
-              valueFrom:
-                secretKeyRef:
-                  name: fiducia-auth-secret
-                  key: token
-                  optional: true
       containers:
         - name: app
           image: anticaptrad/act-ai-server:latest
           imagePullPolicy: IfNotPresent
-          command: ["/bin/sh", "-c"]
-          args: ["source /secrets/.env && node pipeline.js"]
+          command: ["node", "dist/index.js"]
           ports:
-            - containerPort: 3000
+            - name: http
+              containerPort: 3000
+          env:
+            - name: TMPDIR
+              value: /tmp
+          envFrom:
+            - configMapRef:
+                name: act-ai-server-config
+            - secretRef:
+                name: act-ai-server-secrets
+                optional: true
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: "1"
+              memory: 512Mi
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
           volumeMounts:
-            - name: secrets-vol
-              mountPath: /secrets
+            - name: tmp
+              mountPath: /tmp
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
 ---
 apiVersion: v1
 kind: Service
 metadata:
   name: act-ai-server
+  labels:
+    app: act-ai-server
 spec:
   selector:
     app: act-ai-server
   ports:
-    - protocol: TCP
+    - name: http
+      protocol: TCP
       port: 80
-      targetPort: 3000
+      targetPort: http

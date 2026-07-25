@@ -1,33 +1,28 @@
-# act-api-server — HTTP API + NATS event-bus bridge (Rust/axum).
+# act-mcp-server — Model Context Protocol server over JSON-RPC (Rust/axum).
 # Deployed to the k8s cluster at ~/codes/ores/k8s-cluster.
-#
-# Secrets are provided by the `act-api-server-secrets` Secret, which the fiducia
-# external-secrets operator populates from fiducia.cloud (no in-cluster mock
-# loader, no secrets written to disk). Non-secret config is in a ConfigMap.
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: act-api-server-config
+  name: act-mcp-server-config
   labels:
-    app: act-api-server
+    app: act-mcp-server
 data:
   PORT: "8080"
-  OTEL_SERVICE_NAME: "act-api-server"
+  OTEL_SERVICE_NAME: "act-mcp-server"
   OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector:4317"
-  NATS_URL: "nats://nats:4222"
-  RUST_LOG: "info,act_api_server=debug"
+  RUST_LOG: "info,act_mcp_server=debug"
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: act-api-server
+  name: act-mcp-server
   labels:
-    app: act-api-server
+    app: act-mcp-server
 spec:
   replicas: 2
   selector:
     matchLabels:
-      app: act-api-server
+      app: act-mcp-server
   strategy:
     type: RollingUpdate
     rollingUpdate:
@@ -36,7 +31,7 @@ spec:
   template:
     metadata:
       labels:
-        app: act-api-server
+        app: act-mcp-server
     spec:
       securityContext:
         runAsNonRoot: true
@@ -46,16 +41,16 @@ spec:
           type: RuntimeDefault
       containers:
         - name: app
-          image: anticaptrad/act-api-server:latest
+          image: anticaptrad/act-mcp-server:latest
           imagePullPolicy: IfNotPresent
           ports:
             - name: http
               containerPort: 8080
           envFrom:
             - configMapRef:
-                name: act-api-server-config
+                name: act-mcp-server-config
             - secretRef:
-                name: act-api-server-secrets
+                name: act-mcp-server-secrets
                 optional: true
           resources:
             requests:
@@ -86,12 +81,12 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: act-api-server
+  name: act-mcp-server
   labels:
-    app: act-api-server
+    app: act-mcp-server
 spec:
   selector:
-    app: act-api-server
+    app: act-mcp-server
   ports:
     - name: http
       protocol: TCP

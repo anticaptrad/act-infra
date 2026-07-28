@@ -1,9 +1,9 @@
-# act-api-server — HTTP API + NATS event-bus bridge (Rust/axum).
+# act-api-server — guarded HTTP control plane for the Anticaptrad YouTube GAS app.
 # Deployed to the k8s cluster at ~/codes/ores/k8s-cluster.
 #
-# Secrets are provided by the `act-api-server-secrets` Secret, which the fiducia
-# external-secrets operator populates from fiducia.cloud (no in-cluster mock
-# loader, no secrets written to disk). Non-secret config is in a ConfigMap.
+# ADMIN_API_KEY and YOUTUBE_GAS_API_KEY are materialized by
+# deployments/act-api-server.externalsecret.yaml from Fiducia. The two keys are
+# deliberately independent and are never committed to this repository.
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -16,6 +16,13 @@ data:
   OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector:4317"
   NATS_URL: "nats://nats:4222"
   RUST_LOG: "info,act_api_server=debug"
+  YOUTUBE_GAS_URL: "https://script.google.com/macros/s/AKfycbwXNUnFogkqg_aeobBMLCas21CHJ8eIR8W1AnmEBNx7pPgfio8eARW5J4A-lu_V5gY/exec"
+  YOUTUBE_EXPECTED_CHANNEL_HANDLE: "@anticaptrad"
+  YOUTUBE_GAS_TIMEOUT_SECS: "30"
+  YOUTUBE_GAS_MAX_RESPONSE_BYTES: "4194304"
+  # Public and unlisted actions remain disabled until DEN-402's private upload
+  # rehearsal and audit reconciliation have passed.
+  YOUTUBE_ALLOW_PUBLIC_ACTIONS: "false"
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -37,7 +44,10 @@ spec:
     metadata:
       labels:
         app: act-api-server
+      annotations:
+        secret.reloader.stakater.com/reload: act-api-server-secrets
     spec:
+      terminationGracePeriodSeconds: 30
       securityContext:
         runAsNonRoot: true
         runAsUser: 10001
@@ -46,7 +56,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: app
-          image: anticaptrad/act-api-server:latest
+          image: anticaptrad/act-api-server:0.2.0
           imagePullPolicy: IfNotPresent
           ports:
             - name: http
@@ -56,7 +66,6 @@ spec:
                 name: act-api-server-config
             - secretRef:
                 name: act-api-server-secrets
-                optional: true
           resources:
             requests:
               cpu: 50m
@@ -64,18 +73,24 @@ spec:
             limits:
               cpu: 500m
               memory: 256Mi
+          startupProbe:
+            httpGet:
+              path: /health
+              port: http
+            failureThreshold: 30
+            periodSeconds: 2
           livenessProbe:
             httpGet:
               path: /health
               port: http
-            initialDelaySeconds: 5
             periodSeconds: 10
+            timeoutSeconds: 3
           readinessProbe:
             httpGet:
               path: /ready
               port: http
-            initialDelaySeconds: 3
             periodSeconds: 10
+            timeoutSeconds: 3
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true

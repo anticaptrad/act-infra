@@ -93,11 +93,16 @@ def main() -> None:
         "YOUTUBE_GAS_API_KEY": "k8s/default/act-api-server/YOUTUBE_GAS_API_KEY",
     }
 
+    # Compose signatures so the validator does not flag its own source text.
+    forbidden_signatures = {
+        "Fiducia live credential": "fdc" + "_live_",
+        "Google API key": "AI" + "za",
+    }
     for path in ROOT.rglob("*"):
         if path.is_file() and ".git" not in path.parts:
             text = path.read_text(encoding="utf-8", errors="ignore")
-            assert "fdc_live_" not in text, f"possible Fiducia credential in {path}"
-            assert "AIza" not in text, f"possible Google API key in {path}"
+            for label, signature in forbidden_signatures.items():
+                assert signature not in text, f"possible {label} in {path}"
 
     print(f"validated {len(all_documents)} Kubernetes documents")
     print("YouTube control-plane deployment invariants verified")

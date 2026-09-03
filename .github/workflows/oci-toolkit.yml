@@ -40,7 +40,7 @@ jobs:
           bash scripts/oci/test-build-and-push.sh
       - name: Validate registry module
         run: |
-          terraform -chdir=terraform/modules/oci-registries fmt -check
+          terraform -chdir=terraform/modules/oci-registries fmt -diff -check
           terraform -chdir=terraform/modules/oci-registries init -backend=false -input=false
           terraform -chdir=terraform/modules/oci-registries validate
       - name: Parse Crossplane resources

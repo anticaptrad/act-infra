@@ -6,30 +6,15 @@ Deployable images must live in an OCI Distribution endpoint: AWS ECR for Lambda/
 
 ## Infrastructure
 
-`terraform/modules/oci-registries` provides opt-in ECR, Artifact Registry, ACR, and R2 resources. Every provider switch defaults to disabled. `crossplane/oci-registries.example.yaml` contains provider-native AWS, Google Cloud, and Azure examples. Keep all resources unapplied until provider identity, account/project, region, retention, cost, and rollback are reviewed.
+`terraform/modules/oci-registries` is an organization-local adapter pinned to the validated provider-specific modules merged at `zed-pkg/zed-infra@698c675f57fd70ebe24a8a08f963599c4c84fa5a`. ECR, Artifact Registry, ACR, and R2 remain independent opt-ins; every provider switch defaults to disabled. Provider-specific values are required only when that provider is enabled. `crossplane/oci-registries.example.yaml` contains direct AWS, Google Cloud, and Azure examples.
 
-Docker Hub account, organization, visibility, and billing remain account-managed. Never place Docker Hub or cloud credentials in Terraform state.
+Keep all resources unapplied until provider identity, account/project, region, retention, cost, IAM, and rollback are reviewed. Docker Hub account, organization, visibility, and billing remain account-managed; never place Docker Hub or cloud credentials in Terraform state.
 
 ## Build and publish
 
-`scripts/oci/build-and-push.sh` accepts configuration and credentials only through the environment or existing credential helpers. It supports `aws-ecr`, `dockerhub`, `gcp-artifact-registry`, `azure-acr`, and an already-authenticated custom registry (`none`). Builds request SBOM and provenance attestations.
+`scripts/oci/build-and-push.sh` verifies the exact Git blob and executes the hardened publisher merged at `zed-pkg/zed-infra@e0454f5d0d8c970dfa206595a48eda5ead382544`. Configuration and credentials enter only through the environment or existing credential helpers. The publisher supports ECR, Docker Hub, Artifact Registry, ACR, and already-authenticated OCI registries, and requests SBOM and provenance attestations.
 
-Portable services default to `linux/amd64,linux/arm64`:
-
-```bash
-REGISTRY_PROVIDER=aws-ecr \
-REGISTRY_HOST=123456789012.dkr.ecr.us-east-1.amazonaws.com \
-AWS_REGION=us-east-1 \
-IMAGE_KIND=portable \
-IMAGE_NAME=example/service \
-IMAGE_TAG="sha-$(git rev-parse --short=12 HEAD)" \
-DOCKERFILE=docker/Dockerfile.rust-service \
-BUILD_ARG_NAMES=SERVICE_BIN \
-SERVICE_BIN=example-service \
-scripts/oci/build-and-push.sh
-```
-
-`PUSH=false` is a local validation mode and supports exactly one platform because `buildx --load` cannot load an image index. It performs no registry login.
+Portable services default to `linux/amd64,linux/arm64`. `PUSH=false` is a local validation mode and supports exactly one platform because `buildx --load` cannot load an image index; it performs no registry login.
 
 ## Lambda images are single-architecture
 
@@ -60,10 +45,11 @@ Do not configure Lambda, Cloud Run, Kubernetes, Docker, or containerd to pull di
 ## Validation
 
 ```bash
-bash -n scripts/oci/build-and-push.sh scripts/oci/test-build-and-push.sh
+bash -n scripts/oci/build-and-push.sh scripts/oci/test-build-and-push.sh scripts/ci/env-check.sh
 bash scripts/oci/test-build-and-push.sh
+bash scripts/ci/env-check.sh
 terraform -chdir=terraform/modules/oci-registries init -backend=false -input=false
 terraform -chdir=terraform/modules/oci-registries validate
 ```
 
-The contract suite proves invalid Lambda indexes, invalid build arguments, and R2/local-build contradictions fail before Docker side effects. Live publication and cloud apply remain protected-environment operations using workload identity or approved secret delivery.
+The contract suite proves invalid Lambda indexes, invalid build arguments, central-publisher tampering, and R2/local-build contradictions fail before Docker side effects. Live publication, Crossplane synchronization, and cloud apply remain protected-environment operations using workload identity or approved secret delivery.

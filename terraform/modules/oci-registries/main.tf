@@ -12,7 +12,7 @@ module "aws_ecr" {
 
   repository_name = var.repository_name
   oci_role        = "lambda"
-  tags             = var.tags
+  tags            = var.tags
 }
 
 module "gcp_artifact_registry" {

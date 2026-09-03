@@ -9,6 +9,16 @@ cleanup() {
 }
 trap cleanup EXIT
 
+if [[ -z "${OCI_PUBLISHER_FILE:-}" ]]; then
+  OCI_PUBLISHER_FILE="$tmp/pinned-build-and-push.sh"
+  curl --proto '=https' --tlsv1.2 --fail --silent --show-error --location \
+    'https://raw.githubusercontent.com/zed-pkg/zed-infra/e0454f5d0d8c970dfa206595a48eda5ead382544/scripts/oci/build-and-push.sh' \
+    --output "$OCI_PUBLISHER_FILE"
+  export OCI_PUBLISHER_FILE
+fi
+OCI_TOOLKIT_VERIFY_ONLY=true "$publisher" >"$tmp/verify.out"
+grep -F 'e0454f5d0d8c970dfa206595a48eda5ead382544' "$tmp/verify.out" >/dev/null
+
 fake_bin="$tmp/bin"
 context="$tmp/context"
 log="$tmp/docker.log"

@@ -1,0 +1,69 @@
+{
+  "$schema": "https://github.com/ORESoftware/k8s-libs-and-shared-defs/supabase-defs/schemas/db-providers.schema.json",
+  "schemaVersion": "1.0.0",
+  "githubOrg": "anticaptrad",
+  "slackChannel": "#anticaptrad",
+  "productionBranch": "main",
+  "contractSource": {
+    "repository": "anticaptrad/act-orm-core",
+    "path": "migrations",
+    "zedPackage": "anticaptrad/act-orm-core"
+  },
+  "supabase": {
+    "orgRef": "zmkmcdyrryxxhleytdho",
+    "orgDisplayName": "oresoftware",
+    "sharedOrg": "oresoftware",
+    "githubApp": {
+      "supabaseChangesOnly": true,
+      "deployToProduction": false,
+      "automaticBranching": true
+    },
+    "projects": [
+      {
+        "ref": "pendingcanonicalproj",
+        "slug": "canonical",
+        "role": "canonical",
+        "workingDirectory": "supabase/pendingcanonicalproj",
+        "schemaNamespace": "anticaptrad",
+        "migrationTarget": "own-org-later",
+        "state": "planned"
+      },
+      {
+        "ref": "szzbuljocwprjhaqnbvb",
+        "slug": "auth",
+        "role": "auth",
+        "authParent": "child",
+        "workingDirectory": "supabase/szzbuljocwprjhaqnbvb",
+        "schemaNamespace": "anticaptrad",
+        "migrationTarget": "own-org-later",
+        "state": "planned"
+      }
+    ]
+  },
+  "neon": {
+    "orgId": "org-anticaptrad",
+    "projects": [
+      {
+        "id": "anticaptrad-prod",
+        "slug": "prod",
+        "directory": "neon/anticaptrad-prod",
+        "region": "aws-us-east-1",
+        "databases": [
+          {
+            "name": "canonical",
+            "role": "canonical",
+            "owner": "anticaptrad_app"
+          },
+          {
+            "name": "auth",
+            "role": "auth",
+            "authParent": "child",
+            "owner": "anticaptrad_auth"
+          }
+        ],
+        "previewBranches": true,
+        "state": "planned"
+      }
+    ]
+  }
+}

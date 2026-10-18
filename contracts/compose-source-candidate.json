@@ -1,0 +1,19 @@
+{
+  "contract": "anticaptrad.compose-source-candidate.v1",
+  "state": "blocked",
+  "source": {
+    "repository": "anticaptrad/act-api-server.rs",
+    "commit": "88cb7de16131400c982f5589cc45640dbcfb48c5"
+  },
+  "requiredPromotionEvidence": [
+    "source_tree_sha256",
+    "dependency_lock_sha256",
+    "toolchain_digest",
+    "compose_sha256",
+    "configuration_sha256",
+    "health_readiness_probe_results",
+    "deterministic_teardown_result",
+    "indiebuild_exact_head_receipt"
+  ],
+  "explanation": "This is a reviewable infra-owned candidate, not a deployment or build success receipt."
+}

@@ -1,0 +1,27 @@
+# Non-production candidate: canonical infra-owned source/secret boundaries.
+# Run only after artifact/lock/toolchain digest admission is available.
+schema_version: ores.compose.v1
+project: anticaptrad
+allow_lazy_start: false
+source:
+  repository: anticaptrad/act-api-server.rs
+  commit: 88cb7de16131400c982f5589cc45640dbcfb48c5
+  checkout_dir: ../act-api-server.rs
+services:
+  api:
+    runtime: host
+    command: [./target/release/act_api_server]
+    working_dir: ../act-api-server.rs
+    environment:
+      PORT: "8080"
+      YOUTUBE_EXPECTED_CHANNEL_HANDLE: "@anticaptrad"
+      YOUTUBE_ALLOW_PUBLIC_ACTIONS: "false"
+    secret_env:
+      ADMIN_API_KEY: ADMIN_API_KEY
+      YOUTUBE_GAS_API_KEY: YOUTUBE_GAS_API_KEY
+    readiness:
+      healthz_path: /health
+      readyz_path: /ready
+      interval_ms: 1000
+      timeout_ms: 3000
+      retries: 20

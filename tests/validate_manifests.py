@@ -93,6 +93,39 @@ def main() -> None:
         "YOUTUBE_GAS_API_KEY": "k8s/default/act-api-server/YOUTUBE_GAS_API_KEY",
     }
 
+    # Candidate compose must follow the upstream authored v1 shape. It is
+    # deliberately NOT evidence of a deployable image or successful runtime.
+    import json
+    import re
+    from hashlib import sha256
+    compose_path = ROOT / ".ores-compose.yaml"
+    compose = yaml.safe_load(compose_path.read_text(encoding="utf-8"))
+    receipt = json.loads((ROOT / "contracts/compose-source-candidate.json").read_text())
+    assert compose["schema_version"] == "ores.compose.v1"
+    assert compose["project"] == "anticaptrad"
+    assert compose["allow_lazy_start"] is False
+    assert set(compose) == {"schema_version", "project", "allow_lazy_start", "source", "services"}
+    assert receipt["state"] == "blocked"
+    source = compose["source"]
+    assert source["repository"] == receipt["source"]["repository"]
+    assert source["commit"] == receipt["source"]["commit"]
+    assert re.fullmatch(r"[0-9a-f]{40}", source["commit"])
+    assert "branch" not in str(source).lower()
+    service = compose["services"]["api"]
+    assert service["runtime"] == "host"
+    assert service["readiness"]["healthz_path"] == "/health"
+    assert service["readiness"]["readyz_path"] == "/ready"
+    assert service["environment"]["YOUTUBE_ALLOW_PUBLIC_ACTIONS"] == "false"
+    assert set(service["secret_env"]) == {"ADMIN_API_KEY", "YOUTUBE_GAS_API_KEY"}
+    assert all(re.fullmatch(r"[A-Z_][A-Z0-9_]*", ref)
+               for ref in service["secret_env"].values())
+    assert not any(key in service.get("environment", {})
+                   for key in service["secret_env"])
+    assert "image" not in service
+    # Emit one deterministic, credential-free comparison identifier; never
+    # pretend it is a signed/promoted IndieBuild attestation.
+    print("compose candidate SHA-256:", sha256(compose_path.read_bytes()).hexdigest())
+
     # Compose signatures so the validator does not flag its own source text.
     forbidden_signatures = {
         "Fiducia live credential": "fdc" + "_live_",
